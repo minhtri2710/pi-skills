@@ -1,0 +1,16 @@
+{
+  "name": "pi-skills-catalog",
+  "version": "1.0.0",
+  "type": "module",
+  "pi": {
+    "extensions": ["./extensions/skills-catalog.js"]
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}
