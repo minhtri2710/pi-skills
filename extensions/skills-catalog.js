@@ -76,7 +76,8 @@ export default function skillsCatalog(pi) {
 			delete event.systemPromptOptions.skills;
 			event.systemPromptOptions.sections.skill_search = "Use skill_search to find and load specialized skill instructions when the task clearly matches an installed skill. Skill names and descriptions are not included in the prompt.";
 
-			if (skills.length > 0) {
+			// Only a user prompt carries text to match; custom-message runs (for example job notices) have none.
+			if (event.messageType === "user" && skills.length > 0) {
 				const autoloadedSkills = new Set(getAutoloadedSkills(branch));
 				const match = findAutoloadSkill(event.prompt, skills.filter((skill) => !skill.disableModelInvocation && !disabledSkills.has(skill.name) && !autoloadedSkills.has(skill.name)));
 				if (match && match.matchedTerms >= MIN_AUTOLOAD_MATCHES) {

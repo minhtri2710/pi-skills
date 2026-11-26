@@ -78,7 +78,7 @@ test("catalog hides metadata but keeps explicit slash commands and search", asyn
 		await handlers.get("session_start")[0]({ type: "session_start", reason: "startup" }, ctx);
 		const options = { skills: [{ name: "security-audit", description: "Audit code for security vulnerabilities", filePath, baseDir: skillDir }], sections: { skills: "<available_skills>private</available_skills>" } };
 		ctx.getSystemPromptOptions = () => options;
-		await handlers.get("before_agent_start")[0]({ prompt: "ordinary prompt", systemPromptOptions: options }, ctx);
+		await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "ordinary prompt", systemPromptOptions: options }, ctx);
 		assert.equal(options.sections.skills, undefined);
 		assert.equal(options.skills, undefined);
 		assert.equal(autocompleteProviders.length, 1);
@@ -132,7 +132,7 @@ test("catalog hides metadata but keeps explicit slash commands and search", asyn
 		assert.match(result.content[0].text, /# Security audit/);
 		assert.equal(result.details.matches[0].name, "security-audit");
 		const manualOnly = { name: "manual-only", description: "Manual only security instruction", filePath, disableModelInvocation: true };
-		await handlers.get("before_agent_start")[0]({ prompt: "ordinary prompt", systemPromptOptions: { skills: [manualOnly], sections: {} } }, ctx);
+		await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "ordinary prompt", systemPromptOptions: { skills: [manualOnly], sections: {} } }, ctx);
 		const manualSearch = await registrations.tools.get("skill_search").execute("call", { query: "manual only security" });
 		assert.equal(manualSearch.details.matches.length, 0);
 	} finally {
@@ -166,7 +166,7 @@ test("skills list is a scrollable toggle picker that persists branch state", asy
 	};
 	pi.appendEntry = (customType, data) => branch.push({ type: "custom", customType, data });
 	skillsCatalog(pi);
-	await handlers.get("before_agent_start")[0]({ prompt: "ordinary", systemPromptOptions: { skills: allSkills, sections: {} } }, ctx);
+	await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "ordinary", systemPromptOptions: { skills: allSkills, sections: {} } }, ctx);
 	await registrations.commands.get("skills").handler("on", ctx);
 	await registrations.commands.get("skills").handler("list", ctx);
 	assert.deepEqual(branch.at(-1).data.names, ["security-audit"]);
@@ -175,7 +175,7 @@ test("skills list is a scrollable toggle picker that persists branch state", asy
 	const availableSkills = "<available_skills>\n  <skill>\n    <name>security-audit</name>\n    <description>Audit security vulnerabilities</description>\n    <location>/skills/security/SKILL.md</location>\n  </skill>\n</available_skills>";
 	activeBranch = branch;
 	const nextOptions = { skills: allSkills, sections: { skills: availableSkills } };
-	await handlers.get("before_agent_start")[0]({ prompt: "audit security vulnerabilities", systemPromptOptions: nextOptions }, ctx);
+	await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "audit security vulnerabilities", systemPromptOptions: nextOptions }, ctx);
 	assert.deepEqual(nextOptions.skills.map((skill) => skill.name), allSkills.filter((skill) => skill.name !== "security-audit").map((skill) => skill.name));
 	assert.doesNotMatch(nextOptions.sections.skills, /security-audit/u);
 	const contextEvent = { messages: [{ role: "system", sections: { skills: availableSkills } }] };
@@ -184,19 +184,19 @@ test("skills list is a scrollable toggle picker that persists branch state", asy
 	const search = await registrations.tools.get("skill_search").execute("call", { query: "audit security vulnerabilities" });
 	assert.equal(search.details.matches.length, 0);
 	const manualCallOptions = { skills: allSkills, sections: {} };
-	await handlers.get("before_agent_start")[0]({ prompt: "/skill:security-audit", systemPromptOptions: manualCallOptions }, ctx);
+	await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "/skill:security-audit", systemPromptOptions: manualCallOptions }, ctx);
 	assert.equal(manualCallOptions.skills.some((skill) => skill.name === "security-audit"), false);
 	assert.equal(pi.getCommands().some((command) => command.name === "skill:security-audit"), true);
 
 	activeBranch = [];
 	handlers.get("session_tree")[0]({}, ctx);
 	const restoredBranchOptions = { skills: allSkills, sections: { skills: availableSkills } };
-	await handlers.get("before_agent_start")[0]({ prompt: "ordinary", systemPromptOptions: restoredBranchOptions }, ctx);
+	await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "ordinary", systemPromptOptions: restoredBranchOptions }, ctx);
 	assert.equal(restoredBranchOptions.sections.skills, undefined);
 
 	activeBranch = branch;
 	await registrations.commands.get("skills").handler("off", ctx);
-	const autoload = await handlers.get("before_agent_start")[0]({ prompt: "audit security vulnerabilities", systemPromptOptions: { skills: allSkills, sections: {} } }, ctx);
+	const autoload = await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "audit security vulnerabilities", systemPromptOptions: { skills: allSkills, sections: {} } }, ctx);
 	assert.equal(autoload, undefined);
 });
 
@@ -205,8 +205,17 @@ test("slash-prefixed input does not trigger automatic skill loading", async () =
 	skillsCatalog(pi);
 	const ctx = { sessionManager: { getBranch: () => [] } };
 	const options = { skills: [{ name: "security-audit", description: "Audit security vulnerabilities", filePath: "/skills/security/SKILL.md" }], sections: { skills: "<available_skills>security audit</available_skills>" } };
-	const result = await handlers.get("before_agent_start")[0]({ prompt: "/skills list security audit", systemPromptOptions: options }, ctx);
+	const result = await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: "/skills list security audit", systemPromptOptions: options }, ctx);
 	assert.equal(result, undefined);
-	const explicitSkill = await handlers.get("before_agent_start")[0]({ prompt: '<skill name="security-audit">instructions</skill>', systemPromptOptions: options }, ctx);
+	const explicitSkill = await handlers.get("before_agent_start")[0]({ messageType: "user", prompt: '<skill name="security-audit">instructions</skill>', systemPromptOptions: options }, ctx);
 	assert.equal(explicitSkill, undefined);
+});
+
+test("a run started by a custom message skips autoload without a prompt", async () => {
+	const { pi, handlers } = createFakePi();
+	skillsCatalog(pi);
+	const ctx = { sessionManager: { getBranch: () => [] } };
+	const options = { skills: [{ name: "security-audit", description: "Audit security vulnerabilities", filePath: "/skills/security/SKILL.md" }], sections: {} };
+	const result = await handlers.get("before_agent_start")[0]({ messageType: "custom", message: { customType: "background-bash", content: "audit security vulnerabilities" }, systemPromptOptions: options }, ctx);
+	assert.equal(result, undefined);
 });
