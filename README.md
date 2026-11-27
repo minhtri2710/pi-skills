@@ -5,13 +5,13 @@ Pi extension that removes skill descriptions from the model context by default w
 ## Install
 
 ```sh
-pi install /Users/beowulf/Work/pi-skills
+pi install /Users/beowulf/Work/pi-extension/pi-skills
 ```
 
 Restart Pi after installing, or load for one run:
 
 ```sh
-pi --extension /Users/beowulf/Work/pi-skills/extensions/skills-catalog.js
+pi --extension /Users/beowulf/Work/pi-extension/pi-skills/extensions/skills-catalog.js
 ```
 
 ## Use
